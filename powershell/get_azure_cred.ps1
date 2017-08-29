@@ -4,8 +4,7 @@
 # To properly execute this script the Azure user must have permissions in AD
 # - Create an app
 # - Create a service principal
-# - Create a role
-# - Map role to service princpal
+# - Map Contributor role to service princpal
 #
 # Reference: https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authenticate-service-principal-cli
 
@@ -56,22 +55,21 @@ while (-NOT ($LoggedIn)) {
 }
 
 # Determine which subscription
+
+$subscriptions = Get-AzureRmSubscription
 echo "Here are the subscriptions associated with your account:"
 echo ""
 
-Get-AzureRmSubscription > .\tmp.txt 
-
-Get-Content .\tmp.txt | ForEach-Object{
-    $Left = $_.Split(':')[0]
-    $Right = $_.Split(':')[1]
-
-    if ($Left -match "SubscriptionName") {
-        $Right
-    }
+$subscriptions | ForEach-Object{
+    $_.SubscriptionName
 }
 
-del .\tmp.txt
 echo ""
+
+if($subscriptions.Length -eq 1)
+{
+    $SubName = $subscriptions.SubscriptionName
+}
 
 while (-NOT ($SubName)) {
      $SubName=Read-Host "Enter the subscription name you want to use"
@@ -93,22 +91,14 @@ Get-Content $AzureAccountLog | ForEach-Object {
     }
 }
 
-
-# Prompt for App name. Can't be NULL
-echo "Need to create a ParkMyCloud application in your subscription."
-echo "Here's the catch: It must be unique. "
-echo ""
-
-while (-NOT ($AppName)){
-	$AppName = Read-Host "What do you want to call it? (e.g., ParkMyCloud Azure Dev)"
-}
+$AppName = "Octopus Deploy"
     
 
 # Prompt for application password
 while (-NOT($AppPwd)){
 
     while (-NOT($AppPwd1)){
-        $AppPwd1 = Read-Host "Enter password for your application"
+        $AppPwd1 = Read-Host "Enter password for your application '$AppName'"
     }
 
     while (-NOT($AppPwd2)){
@@ -138,7 +128,7 @@ $HTTPName = $AppName | %{$_ -replace (' '),('-')}
 # Need proper enddate
 $EndDate="2099-12-31 00:00:00Z"
 
-$HomePage="https://console.parkmycloud.com"
+$HomePage="https://www.octopusdeploy.com"
 $IdentifierUris="https://$HTTPName-not-used"
 
 New-AzureRmADApplication -DisplayName $AppName -HomePage $HomePage -IdentifierUris $IdentifierUris -Password $AppPwd -EndDate $EndDate > $AzureAppLog
@@ -171,50 +161,6 @@ Get-Content $AzureServicePrincipalLog | ForEach-Object {
 }
 
 
-# Create custom role with limited permissions
-# Generate permissions file
-
-echo "{" > $AzureRolePermsFile
-echo "    ""Name"": ""$AppName""," >> $AzureRolePermsFile
-echo "    ""Description"": ""$AppName Role""," >> $AzureRolePermsFile
-echo "    ""IsCustom"": ""True""," >> $AzureRolePermsFile
-echo "    ""Actions"": [" >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachines/read""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachines/*/read""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachines/start/action""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachines/deallocate/action""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Network/networkInterfaces/read""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Network/publicIPAddresses/read""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachineScaleSets/read""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachineScaleSets/write""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachineScaleSets/start/action""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachineScaleSets/deallocate/action""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Compute/virtualMachineScaleSets/*/read""," >> $AzureRolePermsFile
-echo "        ""Microsoft.Resources/subscriptions/resourceGroups/read""" >> $AzureRolePermsFile
-echo "    ]," >> $AzureRolePermsFile
-echo "    ""NotActions"": []," >> $AzureRolePermsFile
-echo "    ""AssignableScopes"": [" >> $AzureRolePermsFile
-echo "    ""/subscriptions/$SubscriptionID""" >> $AzureRolePermsFile
-echo "    ]" >> $AzureRolePermsFile
-echo "}" >> $AzureRolePermsFile
-
-New-AzureRmRoleDefinition -InputFile $AzureRolePermsFile > $AzureRoleLog
-
-echo "Created limited access role for app."
-echo "" 
-
-# Get RoleID
-Get-Content $AzureRoleLog | ForEach-Object {
-    $Left = $_.Split(':')[0]
-    $Right = $_.Split(':')[1]
-
-    if ($Left -match "Id"){
-        $RoleID = $Right.Trim()
-    }
-}
-
-
- 
 # Delay until Service Principal appears in Active Directory
 while (-NOT ($SP_Present)){
     Get-AzureRmADServicePrincipal > tmp.txt 
@@ -236,23 +182,23 @@ while (-NOT ($SP_Present)){
 
 # Map role to service principal
 
-New-AzureRmRoleAssignment -ObjectId $ServicePrincipalID -RoleDefinitionId $RoleID -Scope "/subscriptions/$SubscriptionID" > $AzureRoleMapLog
+New-AzureRmRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $AppID > $AzureRoleMapLog
 
 echo "Role has been mapped to service principal for application."
 echo ""
 
-# Print out final values for user for ParkMyCloud cred
+# Print out final values for service principal credentials
 #   Subscription ID
 #   Tenant ID
 #   App ID (Client ID)
 #   App API Access Key
 
 echo "Subscription ID: $SubscriptionID"
-echo "      Tenant ID: $TenantID"
-echo "         App ID: $AppID"
-echo " API Access Key: $AppPwd"
+echo "Client\Application ID: $AppID"
+echo "Tenant ID: $TenantID"
+echo "Password\Key: $AppPwd"
 echo ""
-echo "Enter these on the Azure credential page in ParkMyCloud."
+echo "Enter these on the Azure credential page in Octopus."
 echo ""
 
 
