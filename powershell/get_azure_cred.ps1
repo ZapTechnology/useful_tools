@@ -106,7 +106,7 @@ while (-NOT($AppPwd)){
     }
     
 
-    if ($AppPwd1 -match $AppPwd2){
+    if ($AppPwd1 -eq $AppPwd2){
         $AppPwd=$AppPwd1
 
     }
