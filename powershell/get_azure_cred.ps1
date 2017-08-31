@@ -1,5 +1,5 @@
 # This script has been tested in 
-#   Windows 10 Powershell 3.0
+#   Windows 10 Powershell 4.0
 #
 # To properly execute this script the Azure user must have permissions in AD
 # - Create an app
@@ -8,28 +8,6 @@
 #
 # Reference: https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authenticate-service-principal-cli
 
-
-# Initialize Parameters
-# Create hidden directory for stuff if it doesn't exist
-
-$PMCAzure="$HOME\.PMCAzure"
-
-if (-Not (test-path -Path $PMCAzure)) {
-
-    mkdir $PMCAzure
-}
-
-
-# Use separate log file for each important step.
-
-$AzureCliInstallLog="$PMCAzure\AzureCliInstallLog"
-$AzureLoginLog="$PMCAzure\PMCAzureLoginLog"
-$AzureAccountLog="$PMCAzure\PMCAzureAccountLog"
-$AzureAppLog="$PMCAzure\PMCAzureAppLog"
-$AzureServicePrincipalLog="$PMCAzure\PMCAzureServicePrincipalLog"
-$AzureRoleLog="$PMCAzure\PMCAzureRoleLog"
-$AzureRoleMapLog="$PMCAzure\PMCAzureRoleMapLog"
-$AzureRolePermsFile="$PMCAzure\PMCExampleAzureRole.json"
 
 # Install Azure Resource Manager and Azure modules if not already installed
 #
@@ -48,10 +26,6 @@ while (-NOT ($LoggedIn)) {
     echo ""
 
     $LoggedIn=Login-AzureRmAccount -ErrorAction:SilentlyContinue
-
-    # Record login information
-    echo $LoggedIn > $AzureLoginLog
-
 }
 
 # Determine which subscription
@@ -72,7 +46,7 @@ if($subscriptions.Length -eq 1)
 }
 
 while (-NOT ($SubName)) {
-     $SubName=Read-Host "Enter the subscription name you want to use"
+    $SubName=Read-Host "Enter the subscription name you want to use"
 }
     
 # Get subscription and tenant ID's
@@ -86,27 +60,7 @@ $AppName = "Octopus Deploy"
 
 # Prompt for application password
 while (-NOT($AppPwd)){
-
-    while (-NOT($AppPwd1)){
-        $AppPwd1 = Read-Host "Enter password for your application '$AppName'"
-    }
-
-    while (-NOT($AppPwd2)){
-        $AppPwd2 = Read-Host "Re-enter your password"
-    }
-    
-
-    if ($AppPwd1 -eq $AppPwd2){
-        $AppPwd=$AppPwd1
-
-    }
-    else{
-        echo "Your passwords do not match. Try again."
-        echo ""
-        AppPwd1=""
-        AppPwd2=""
-    }
-        
+	$AppPwd = Read-Host "Enter password for your application '$AppName'"
 }
 
 
@@ -121,21 +75,16 @@ $EndDate="2099-12-31 00:00:00Z"
 $HomePage="https://www.octopusdeploy.com"
 $IdentifierUris="https://$HTTPName-not-used"
 
-New-AzureRmADApplication -DisplayName $AppName -HomePage $HomePage -IdentifierUris $IdentifierUris -Password $AppPwd -EndDate $EndDate > $AzureAppLog
+$newADApp = New-AzureRmADApplication -DisplayName $AppName -HomePage $HomePage -IdentifierUris $IdentifierUris -Password $AppPwd -EndDate $EndDate
 
+$AppID = $newADApp.ApplicationId
 
-Get-Content $AzureAppLog | ForEach-Object {
-    $Left = $_.Split(':')[0]
-    $Right = $_.Split(':')[1]
-
-    if ($Left -match "ApplicationId"){
-        $AppID = $Right.Trim()
-    }
+if($AppID -eq $null){
+	throw "Can't find application Id, AD application creation may have failed."
 }
 
-
 # Create Service Principal for App
-New-AzureRmADServicePrincipal -ApplicationId $AppID > $AzureServicePrincipalLog
+$newServicePrincipal = New-AzureRmADServicePrincipal -ApplicationId $AppID
 
 echo ""
 echo "Created service principal for application."
@@ -143,36 +92,30 @@ echo ""
 
 $ServicePrincipalName = $AppName
 
-Get-Content $AzureServicePrincipalLog | ForEach-Object {
-    if ( $_ -match "$AppName" ) {
-        $A = $_.Replace("$AppName","").Trim(" ") -split '\s+'
-	$ServicePrincipalID = $A[1].Trim(" ")
-    }
-}
-
-
 # Delay until Service Principal appears in Active Directory
 while (-NOT ($SP_Present)){
-    Get-AzureRmADServicePrincipal > tmp.txt 
+	echo "Delay until Service Principal '$AppName' appears in Active Directory"
+    $servicePrincipals = Get-AzureRmADServicePrincipal -SearchString "$AppName"
 
-    Get-Content .\tmp.txt | ForEach-Object {
-        if ( $_ -match "$ServicePrincipalID" ) {
-            $A = $_.Replace("$AppName","").Trim(" ") -split '\s+'
-	    $SP_Present = $A[1]
-	    echo "Service Principal $SP_Present found."
-	    echo ""
-        }
-    }
+	foreach($sp in $servicePrincipals){
+		if($sp.DisplayName -eq $AppName){
+			$SP_Present = $AppName
+			echo "Service Principal '$SP_Present' found."
+			echo ""
+		}
+	}
 
-    sleep 30 
-
-    del .\tmp.txt
+    sleep 30
 }
 
 
 # Map role to service principal
 
-New-AzureRmRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $AppID > $AzureRoleMapLog
+$roleAssignment = New-AzureRmRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $AppID
+
+if($roleAssignment -eq $null){
+	throw "Failed to assign role to service principal '$AppName"
+}
 
 echo "Role has been mapped to service principal for application."
 echo ""
@@ -190,6 +133,3 @@ echo "Password\Key: $AppPwd"
 echo ""
 echo "Enter these on the Azure credential page in Octopus."
 echo ""
-
-
-
