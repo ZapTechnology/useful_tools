@@ -61,7 +61,7 @@ echo "Here are the subscriptions associated with your account:"
 echo ""
 
 $subscriptions | ForEach-Object{
-    $_.SubscriptionName
+    if($_.SubscriptionName -ne $null) {$_.SubscriptionName} else {$_.Name}
 }
 
 echo ""
@@ -76,20 +76,10 @@ while (-NOT ($SubName)) {
 }
     
 # Get subscription and tenant ID's
-Get-AzureRmSubscription -SubscriptionName $SubName > $AzureAccountLog
+$selectedSubscription = Get-AzureRmSubscription -SubscriptionName $SubName
 
-Get-Content $AzureAccountLog | ForEach-Object {
-    $Left = $_.Split(':')[0]
-    $Right = $_.Split(':')[1]
-
-    if ($Left -match "SubscriptionID"){
-        $SubscriptionID=$Right.Trim()
-    }
-
-    if ($Left -match "TenantID"){
-        $TenantID = $Right.Trim()
-    }
-}
+$SubscriptionID=if($selectedSubscription.SubscriptionId -ne $null) {$selectedSubscription.SubscriptionId} else {$selectedSubscription.Id}
+$TenantID=$selectedSubscription.TenantId
 
 $AppName = "Octopus Deploy"
     
