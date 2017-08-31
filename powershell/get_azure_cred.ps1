@@ -73,14 +73,14 @@ $HTTPName = $AppName | %{$_ -replace (' '),('-')}
 $EndDate="2099-12-31 00:00:00Z"
 
 $HomePage="https://www.octopusdeploy.com"
-$IdentifierUris="https://$HTTPName-not-used"
+$IdentifierUris="https://$([guid]::NewGuid().ToString())-not-used"
 
 $newADApp = New-AzureRmADApplication -DisplayName $AppName -HomePage $HomePage -IdentifierUris $IdentifierUris -Password $AppPwd -EndDate $EndDate
 
 $AppID = $newADApp.ApplicationId
 
 if($AppID -eq $null){
-	throw "Can't find application Id, AD application creation may have failed."
+	throw "Can't find application Id, AD application creation may have failed. Make sure you don't have exising AD application with '$AppName'"
 }
 
 # Create Service Principal for App
