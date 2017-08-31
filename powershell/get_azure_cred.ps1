@@ -49,11 +49,11 @@ while (-NOT ($SubName)) {
     $SubName=Read-Host "Enter the subscription name you want to use"
 }
     
-# Get subscription and tenant ID's
-$selectedSubscription = Get-AzureRmSubscription -SubscriptionName $SubName
+# Set subscription and tenant ID's
+$context = Set-AzureRmContext -SubscriptionName $SubName
 
-$SubscriptionID=if($selectedSubscription.SubscriptionId -ne $null) {$selectedSubscription.SubscriptionId} else {$selectedSubscription.Id}
-$TenantID=$selectedSubscription.TenantId
+$SubscriptionID=$context.Subscription.SubscriptionId
+$TenantID=$context.Subscription.TenantId
 
 $AppName = "Octopus Deploy"
     
