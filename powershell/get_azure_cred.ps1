@@ -75,7 +75,8 @@ $EndDate="2099-12-31 00:00:00Z"
 $HomePage="https://www.octopusdeploy.com"
 $IdentifierUris="https://$([guid]::NewGuid().ToString())-not-used"
 
-$newADApp = New-AzureRmADApplication -DisplayName $AppName -HomePage $HomePage -IdentifierUris $IdentifierUris -Password $AppPwd -EndDate $EndDate
+$SecureAppPwd=ConvertTo-SecureString $AppPwd -asplaintext -force
+$newADApp = New-AzureRmADApplication -DisplayName $AppName -HomePage $HomePage -IdentifierUris $IdentifierUris -Password $SecureAppPwd -EndDate $EndDate
 
 $AppID = $newADApp.ApplicationId
 
