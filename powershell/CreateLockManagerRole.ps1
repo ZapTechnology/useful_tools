@@ -8,7 +8,7 @@ Select-AzureRmSubscription -SubscriptionId $SubscriptionId
 $perms = 'Microsoft.Authorization/locks/*'
 
 $roleName = "Lock Manager"
-$role = Get-AzureRmRoleDefinition -Name $roleName
+$role = (Get-AzureRmRoleDefinition -Scope "/" -Custom | Where-Object Name -eq "Lock Manager")
 if ($role -eq $null) {
     $role = [Microsoft.Azure.Commands.Resources.Models.Authorization.PSRoleDefinition]::new()
     $role.Name = $roleName
@@ -16,13 +16,20 @@ if ($role -eq $null) {
     $role.IsCustom = $true
 }
 $role.Actions = $perms
-$role.AssignableScopes = @("/subscriptions/$SubscriptionId")
-if ($role.Id -eq $null) 
-{
+
+if ($role.AssignableScopes -eq $null) {
+    $role.AssignableScopes = @("/subscriptions/$SubscriptionId")
+}
+else {
+    if ($role.AssignableScopes.Contains("/subscriptions/$SubscriptionId") -eq $false) {
+        $role.AssignableScopes.Add("/subscriptions/$SubscriptionId")
+    }
+}
+
+if ($role.Id -eq $null) {
     New-AzureRmRoleDefinition -Role $role
 }
-else 
-{
+else {
     Set-AzureRmRoleDefinition -Role $role
 }
 Write-Host "Lock Manager custom role created"
