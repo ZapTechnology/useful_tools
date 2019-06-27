@@ -53,6 +53,9 @@ while (-NOT ($SubName)) {
 $context = Set-AzureRmContext -SubscriptionName $SubName
 
 $SubscriptionID=$context.Subscription.SubscriptionId
+
+CreateLockManagerRole -SubscriptionId $SubscriptionID
+
 $TenantID=$context.Subscription.TenantId
 
 $AppName = "Octopus Deploy"
@@ -112,10 +115,16 @@ while (-NOT ($SP_Present)){
 
 # Map role to service principal
 
-$roleAssignment = New-AzureRmRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $AppID
+$roleAssignment = New-AzureRmRoleAssignment -RoleDefinitionName 'Contributor' -ServicePrincipalName $AppID
 
 if($roleAssignment -eq $null){
-	throw "Failed to assign role to service principal '$AppName"
+	throw "Failed to assign Contributor role to service principal '$AppName"
+}
+
+$roleAssignment = New-AzureRmRoleAssignment -RoleDefinitionName 'Lock Manager' -ServicePrincipalName $AppID
+
+if($roleAssignment -eq $null){
+	throw "Failed to assign Lock Manager role to service principal '$AppName"
 }
 
 echo "Role has been mapped to service principal for application."
