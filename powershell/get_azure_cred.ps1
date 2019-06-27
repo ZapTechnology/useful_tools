@@ -54,9 +54,9 @@ $context = Set-AzureRmContext -SubscriptionName $SubName
 
 $SubscriptionID=$context.Subscription.SubscriptionId
 
-CreateLockManagerRole -SubscriptionId $SubscriptionID
-
 $TenantID=$context.Subscription.TenantId
+
+CreateLockManagerRole -TenantId $TenantID -SubscriptionIds @($SubscriptionID)
 
 $AppName = "Octopus Deploy"
     

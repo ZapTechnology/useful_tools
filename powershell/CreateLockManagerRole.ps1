@@ -1,10 +1,12 @@
 Param(
     [Parameter(Mandatory = $True)]
-    [String]$SubscriptionId
+    [String]$TenantId,
+    [Parameter(Mandatory = $True)]
+    [String[]]$SubscriptionIds
 )
 
-Write-Host "Creating Lock Manager custom role for subcription '$SubscriptionId'..."
-Select-AzureRmSubscription -SubscriptionId $SubscriptionId
+Write-Host "Creating Lock Manager custom role for tenant '$TenantId'..."
+Set-AzureRmContext -TenantId $TenantId
 $perms = 'Microsoft.Authorization/locks/*'
 
 $roleName = "Lock Manager"
@@ -16,15 +18,7 @@ if ($role -eq $null) {
     $role.IsCustom = $true
 }
 $role.Actions = $perms
-
-if ($role.AssignableScopes -eq $null) {
-    $role.AssignableScopes = @("/subscriptions/$SubscriptionId")
-}
-else {
-    if ($role.AssignableScopes.Contains("/subscriptions/$SubscriptionId") -eq $false) {
-        $role.AssignableScopes.Add("/subscriptions/$SubscriptionId")
-    }
-}
+$role.AssignableScopes = $SubscriptionIds | % {"/subscriptions/$_"}
 
 if ($role.Id -eq $null) {
     New-AzureRmRoleDefinition -Role $role
