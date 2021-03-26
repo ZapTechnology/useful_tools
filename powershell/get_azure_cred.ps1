@@ -50,13 +50,13 @@ while (-NOT ($SubName)) {
 }
     
 # Set subscription and tenant ID's
-$context = Set-AzureRmContext -SubscriptionName $SubName
+$context = Set-AzureRmContext -Subscription $SubName
 
 $SubscriptionID=$context.Subscription.SubscriptionId
 
 $TenantID=$context.Subscription.TenantId
 
-CreateLockManagerRole -TenantId $TenantID -SubscriptionIds @($SubscriptionID)
+.\CreateLockManagerRole.ps1 -TenantId $TenantID -SubscriptionIds @($SubscriptionID)
 
 $AppName = "Octopus Deploy"
     
