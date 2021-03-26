@@ -20,12 +20,14 @@
 # - Can't be NULL
 # - Trap failed login and prompt user to try again
 
-
-while (-NOT ($LoggedIn)) {
-    echo "Logging into Azure."
-    echo ""
-
-    $LoggedIn=Login-AzureRmAccount -ErrorAction:SilentlyContinue
+$context = Get-AzureRmContext
+if ($context -eq $null) {
+	while (-NOT ($LoggedIn)) {
+		echo "Logging into Azure."
+		echo ""
+	
+		$LoggedIn=Login-AzureRmAccount -ErrorAction:SilentlyContinue
+	}
 }
 
 # Determine which subscription
